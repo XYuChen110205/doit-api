@@ -1,10 +1,12 @@
 """课程表 API 路由"""
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 from app.database import database, courses, schedule_settings
 from app.response import success, error
+from app.routers.auth import get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/api/courses", tags=["courses"])
 
@@ -48,9 +50,12 @@ class ScheduleSettings(BaseModel):
 
 
 @router.get("")
-async def get_courses(term: Optional[str] = None):
+async def get_courses(
+    term: Optional[str] = None,
+    current_user: User = Depends(get_current_user)
+):
     """获取课程列表"""
-    query = courses.select()
+    query = courses.select().where(courses.c.user_id == current_user.id)
     if term:
         query = query.where(courses.c.term == term)
     rows = await database.fetch_all(query)
@@ -58,10 +63,14 @@ async def get_courses(term: Optional[str] = None):
 
 
 @router.post("")
-async def create_course(course: CourseCreate):
+async def create_course(
+    course: CourseCreate,
+    current_user: User = Depends(get_current_user)
+):
     """创建课程"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     query = courses.insert().values(
+        user_id=current_user.id,
         name=course.name,
         code=course.code,
         hours=course.hours,
@@ -129,9 +138,9 @@ async def delete_course(course_id: int):
 # ---- 课程表设置 API ----
 
 @router.get("/settings/default")
-async def get_schedule_settings():
+async def get_schedule_settings(current_user: User = Depends(get_current_user)):
     """获取课程表设置"""
-    query = schedule_settings.select().where(schedule_settings.c.user_id == "default")
+    query = schedule_settings.select().where(schedule_settings.c.user_id == current_user.id)
     row = await database.fetch_one(query)
     if not row:
         # 返回默认设置
@@ -148,16 +157,19 @@ async def get_schedule_settings():
 
 
 @router.put("/settings/default")
-async def update_schedule_settings(settings: ScheduleSettings):
+async def update_schedule_settings(
+    settings: ScheduleSettings,
+    current_user: User = Depends(get_current_user)
+):
     """更新课程表设置"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    query = schedule_settings.select().where(schedule_settings.c.user_id == "default")
+    query = schedule_settings.select().where(schedule_settings.c.user_id == current_user.id)
     existing = await database.fetch_one(query)
     
     if existing:
         # 更新
-        query = schedule_settings.update().where(schedule_settings.c.user_id == "default").values(
+        query = schedule_settings.update().where(schedule_settings.c.user_id == current_user.id).values(
             background=settings.background,
             background_opacity=settings.background_opacity,
             table_opacity=settings.table_opacity,
@@ -170,7 +182,7 @@ async def update_schedule_settings(settings: ScheduleSettings):
     else:
         # 创建
         query = schedule_settings.insert().values(
-            user_id="default",
+            user_id=current_user.id,
             background=settings.background,
             background_opacity=settings.background_opacity,
             table_opacity=settings.table_opacity,

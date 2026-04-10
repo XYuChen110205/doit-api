@@ -3,10 +3,11 @@ from datetime import datetime
 from app.database import database, inbox, tasks
 
 
-async def create_inbox(content: str) -> dict:
+async def create_inbox(user_id: int, content: str) -> dict:
     """I1: 快速添加到收集箱"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     query = inbox.insert().values(
+        user_id=user_id,
         content=content,
         created_at=now
     )
@@ -21,14 +22,14 @@ async def get_inbox_by_id(inbox_id: int) -> dict | None:
     return dict(row._mapping) if row else None
 
 
-async def list_inbox() -> list[dict]:
+async def list_inbox(user_id: int) -> list[dict]:
     """I2: 列出全部收集箱条目，按创建时间倒序"""
-    query = inbox.select().order_by(inbox.c.created_at.desc())
+    query = inbox.select().where(inbox.c.user_id == user_id).order_by(inbox.c.created_at.desc())
     rows = await database.fetch_all(query)
     return [dict(r._mapping) for r in rows]
 
 
-async def convert_inbox_to_task(inbox_id: int) -> dict | None:
+async def convert_inbox_to_task(user_id: int, inbox_id: int) -> dict | None:
     """I3: 将收集箱条目转为任务（事务性操作）"""
     # 读取 inbox 条目
     inbox_item = await get_inbox_by_id(inbox_id)
@@ -41,6 +42,7 @@ async def convert_inbox_to_task(inbox_id: int) -> dict | None:
     # 创建任务，due_date 设为今天
     today = datetime.now().strftime("%Y-%m-%d")
     task_query = tasks.insert().values(
+        user_id=user_id,
         title=inbox_item["content"],
         detail="",
         task_type="todo",

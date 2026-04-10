@@ -2,23 +2,23 @@
 from app.database import database, tags
 
 
-async def list_tags() -> list[dict]:
+async def list_tags(user_id: int) -> list[dict]:
     """G1: 获取所有标签"""
-    query = tags.select().order_by(tags.c.id)
+    query = tags.select().where(tags.c.user_id == user_id).order_by(tags.c.id)
     rows = await database.fetch_all(query)
     return [dict(r._mapping) for r in rows]
 
 
-async def create_tag(name: str, color: str = "#7BAFCC") -> dict:
+async def create_tag(user_id: int, name: str, color: str = "#7BAFCC") -> dict:
     """G2: 创建标签"""
     # 检查是否已存在
     existing = await database.fetch_one(
-        tags.select().where(tags.c.name == name)
+        tags.select().where(tags.c.user_id == user_id, tags.c.name == name)
     )
     if existing:
         return dict(existing._mapping)
     
-    query = tags.insert().values(name=name, color=color)
+    query = tags.insert().values(user_id=user_id, name=name, color=color)
     last_id = await database.execute(query)
     return await get_tag_by_id(last_id)
 

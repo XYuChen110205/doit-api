@@ -4,9 +4,10 @@ from app.database import database, tasks
 from app.services.task_tag_service import get_task_tags
 
 
-async def create_task(data: dict) -> dict:
+async def create_task(user_id: int, data: dict) -> dict:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     query = tasks.insert().values(
+        user_id=user_id,
         title=data["title"],
         detail=data.get("detail", ""),
         task_type=data.get("task_type", "todo"),
@@ -34,8 +35,11 @@ async def get_task_by_id(task_id: int) -> dict | None:
     return task
 
 
-async def get_tasks_by_date(date_str: str) -> list[dict]:
-    query = tasks.select().where(tasks.c.due_date == date_str).order_by(
+async def get_tasks_by_date(user_id: int, date_str: str) -> list[dict]:
+    query = tasks.select().where(
+        tasks.c.user_id == user_id,
+        tasks.c.due_date == date_str
+    ).order_by(
         tasks.c.priority.desc(), tasks.c.created_at.asc()
     )
     rows = await database.fetch_all(query)
@@ -79,9 +83,10 @@ async def delete_task(task_id: int) -> bool:
     return True
 
 
-async def get_tasks_by_range(start_date: str, end_date: str) -> list[dict]:
+async def get_tasks_by_range(user_id: int, start_date: str, end_date: str) -> list[dict]:
     """T5: 按日期范围查询任务"""
     query = tasks.select().where(
+        tasks.c.user_id == user_id,
         tasks.c.due_date >= start_date,
         tasks.c.due_date <= end_date
     ).order_by(tasks.c.due_date.asc(), tasks.c.priority.desc())
