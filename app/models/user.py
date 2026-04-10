@@ -1,13 +1,22 @@
 """用户模型"""
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional
+import re
 
 
 class UserBase(BaseModel):
     """用户基础模型"""
     username: str
-    email: EmailStr
+    email: str
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        """简单的邮箱格式验证"""
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+            raise ValueError('Invalid email format')
+        return v
 
 
 class UserCreate(UserBase):
@@ -18,8 +27,16 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """更新用户模型"""
     username: Optional[str] = None
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     avatar: Optional[str] = None
+    
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        """简单的邮箱格式验证"""
+        if v is not None and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+            raise ValueError('Invalid email format')
+        return v
 
 
 class UserInDB(UserBase):
