@@ -7,14 +7,26 @@ from pathlib import Path
 # 检测是否在 Vercel 环境
 is_vercel = os.environ.get('VERCEL') == '1'
 
-if is_vercel:
-    # Vercel 环境使用内存数据库（因为文件系统不持久化，且外部数据库连接可能受限）
-    DATABASE_URL = "sqlite:///:memory:"
-else:
-    # 本地环境使用文件数据库
-    DB_DIR = Path(__file__).resolve().parent.parent
-    DB_PATH = DB_DIR / "todo.db"
-    DATABASE_URL = f"sqlite:///{DB_PATH}"
+# 优先使用环境变量中的数据库 URL
+DATABASE_URL = os.getenv("DATABASE_URL", "") or os.getenv("DATABASE_URL_Doit", "")
+
+if not DATABASE_URL:
+    if is_vercel:
+        # Vercel 环境但没有数据库配置，使用内存数据库（数据不持久化）
+        DATABASE_URL = "sqlite:///:memory:"
+    else:
+        # 本地环境使用文件数据库
+        DB_DIR = Path(__file__).resolve().parent.parent
+        DB_PATH = DB_DIR / "todo.db"
+        DATABASE_URL = f"sqlite:///{DB_PATH}"
+
+# 如果是 PostgreSQL 连接字符串，添加连接池配置
+if DATABASE_URL.startswith("postgresql://"):
+    # Supabase 连接池配置
+    if "?" in DATABASE_URL:
+        DATABASE_URL += "&pool_size=5&max_overflow=10"
+    else:
+        DATABASE_URL += "?pool_size=5&max_overflow=10"
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
