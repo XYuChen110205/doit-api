@@ -23,7 +23,17 @@ if not DATABASE_URL:
         DB_PATH = DB_DIR / "todo.db"
         DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-database = databases.Database(DATABASE_URL)
+# 配置数据库连接选项
+# Supabase 需要 SSL 连接
+database_url_with_ssl = DATABASE_URL
+if database_url_with_ssl.startswith("postgresql://"):
+    # 添加 SSL 模式
+    if "?" in database_url_with_ssl:
+        database_url_with_ssl += "&sslmode=require"
+    else:
+        database_url_with_ssl += "?sslmode=require"
+
+database = databases.Database(database_url_with_ssl)
 metadata = sqlalchemy.MetaData()
 
 # ---- 任务表 ----
